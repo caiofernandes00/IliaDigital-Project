@@ -20,7 +20,7 @@ For this example we placed 3 Nameko services: `Products`, `Orders` and `Gateway`
 
 While possible, this is not necessarily the best practice. Aim to apply Domain Driven Design concepts and try to place only services that belong to the same bounded context in one repository e.g., Product (main service responsible for serving products) and Product Indexer (a service responsible for listening for product change events and indexing product data within search database).
 
-### Services
+### Services 
 
 ![Services](diagram.png)
 

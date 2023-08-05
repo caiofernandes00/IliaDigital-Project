@@ -26,6 +26,12 @@ def test_get(storage, products):
     assert 135 == product['maximum_speed']
     assert 50 == product['passenger_capacity']
     assert 11 == product['in_stock']
+    
+def test_delete(storage, product):
+    storage.delete('LZ127')
+    with pytest.raises(storage.NotFound) as exc:
+        storage.get('LZ127')
+    assert 'Product ID LZ127 does not exist' == exc.value.args[0]
 
 
 def test_list(storage, products):
