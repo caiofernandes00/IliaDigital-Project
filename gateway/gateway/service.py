@@ -23,8 +23,12 @@ class GatewayService(object):
     products_rpc = RpcProxy('products')
     
     @memoize_with_ttl(expiration=60)
-    def _get_list_of_products(self):
-        return self.products_rpc.list()
+    def _get_map_of_products(self):
+        return {prod['id']: prod for prod in self.products_rpc.list()}
+
+    @memoize_with_ttl(expiration=60)
+    def _get_product_by_id(self, product_id):
+        return self.products_rpc.get(product_id)
 
     @http(
         "GET", "/products/<string:product_id>",
@@ -109,7 +113,7 @@ class GatewayService(object):
         order = self.orders_rpc.get_order(order_id)
 
         # Retrieve all products from the products service
-        product_map = {prod['id']: prod for prod in self._get_list_of_products()}
+        product_map = self._get_map_of_products()
 
         # get the configured image root
         image_root = config['PRODUCT_IMAGE_ROOT']
@@ -151,9 +155,6 @@ class GatewayService(object):
         if not orders:
             return []
         
-        # Retrieve all products from the products service
-        product_map = {prod['id']: prod for prod in self._get_list_of_products()}
-
         # get the configured image root
         image_root = config['PRODUCT_IMAGE_ROOT']
 
@@ -161,8 +162,9 @@ class GatewayService(object):
         for order in orders:
             for item in order['order_details']:
                 product_id = item['product_id']
+                product = self._get_product_by_id(product_id)
 
-                item['product'] = product_map[product_id]
+                item['product'] = product
                 # Construct an image url.
                 item['image'] = '{}/{}.jpg'.format(image_root, product_id)
 
@@ -216,7 +218,8 @@ class GatewayService(object):
 
     def _create_order(self, order_data):
         # check order product ids are valid
-        valid_product_ids = {prod['id'] for prod in self._get_list_of_products()}
+        valid_product_ids = self._get_map_of_products()
+        
         for item in order_data['order_details']:
             if item['product_id'] not in valid_product_ids:
                 raise ProductNotFound(
