@@ -45,6 +45,42 @@ def _get_order(order_id, nameko_rpc):
 
     return order
 
+@router.get("/", status_code=status.HTTP_200_OK)
+def list_orders(rpc = Depends(get_rpc)):
+    try:
+        return _list_orders(rpc)
+    except OrderNotFound as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error)
+        )
+
+def _list_orders(nameko_rpc):
+    # Retrieve order data from the orders service.
+    # Note - this may raise a remote exception that has been mapped to
+    with nameko_rpc.next() as nameko:
+        orders = nameko.orders.list_orders()
+    if not orders:
+        return []
+        
+    # Retrieve all products from the products service
+    with nameko_rpc.next() as nameko:
+        product_map = {prod['id']: prod for prod in nameko.products.list()}
+
+    # get the configured image root
+    image_root = config['PRODUCT_IMAGE_ROOT']
+
+    # Enhance order details with product and image details.
+    for order in orders:
+        for item in order['order_details']:
+            product_id = item['product_id']
+
+            item['product'] = product_map[product_id]
+            # Construct an image url.
+            item['image'] = '{}/{}.jpg'.format(image_root, product_id)
+
+    return orders
+
 @router.post("", status_code=status.HTTP_200_OK, response_model=schemas.CreateOrderSuccess)
 def create_order(request: schemas.CreateOrder, rpc = Depends(get_rpc)):
     id_ =  _create_order(request.dict(), rpc)

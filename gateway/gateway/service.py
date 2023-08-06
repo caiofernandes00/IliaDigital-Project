@@ -5,6 +5,7 @@ from nameko import config
 from nameko.exceptions import BadRequest
 from nameko.rpc import RpcProxy
 from werkzeug import Response
+from gateway.utils.memoization import memoize_with_ttl
 
 from gateway.entrypoints import http
 from gateway.exceptions import OrderNotFound, ProductNotFound
@@ -20,6 +21,10 @@ class GatewayService(object):
 
     orders_rpc = RpcProxy('orders')
     products_rpc = RpcProxy('products')
+    
+    @memoize_with_ttl(expiration=300)
+    def _get_product_by_id(self, product_id):
+        return self.products_rpc.get(product_id)
 
     @http(
         "GET", "/products/<string:product_id>",
@@ -33,6 +38,16 @@ class GatewayService(object):
             ProductSchema().dumps(product).data,
             mimetype='application/json'
         )
+    
+    @http(
+        "DELETE", "/products/<string:product_id>",
+        expected_exceptions=ProductNotFound
+    )
+    def delete_product(self, request, product_id):
+        """Deletes product by `product_id`
+        """
+        self.products_rpc.delete(product_id)
+        return Response(status=204)
 
     @http(
         "POST", "/products",
@@ -93,21 +108,61 @@ class GatewayService(object):
         # raise``OrderNotFound``
         order = self.orders_rpc.get_order(order_id)
 
-        # Retrieve all products from the products service
-        product_map = {prod['id']: prod for prod in self.products_rpc.list()}
-
         # get the configured image root
         image_root = config['PRODUCT_IMAGE_ROOT']
 
         # Enhance order details with product and image details.
         for item in order['order_details']:
             product_id = item['product_id']
+            product = self._get_product_by_id(product_id)
 
-            item['product'] = product_map[product_id]
+            item['product'] = product
             # Construct an image url.
             item['image'] = '{}/{}.jpg'.format(image_root, product_id)
 
         return order
+
+    @http("GET", "/orders")
+    def list_orders(self, request, expected_exceptions=ValidationError):
+        """Gets the order details for the order given by `order_id`.
+
+        Enhances the order details with full product details from the
+        products-service.
+        """
+        try:
+            params = request.args.to_dict()
+            page_number = int(params['page_number']) if 'page_number' in params else 1
+            page_size = int(params['page_size']) if 'page_size' in params else 10    
+        except ValueError as exc:
+            raise BadRequest("Invalid parameters: {}".format(exc))
+        
+        orders = self._list_orders(page_number, page_size)
+        return Response(
+            GetOrderSchema(many=True).dumps(orders).data,
+            mimetype='application/json'
+        )
+
+    def _list_orders(self, page_number, page_size):
+        # Retrieve order data from the orders service.
+        # Note - this may raise a remote exception that has been mapped to
+        orders = self.orders_rpc.list_orders(page_number, page_size)
+        if not orders:
+            return []
+        
+        # get the configured image root
+        image_root = config['PRODUCT_IMAGE_ROOT']
+
+        # Enhance order details with product and image details.
+        for order in orders:
+            for item in order['order_details']:
+                product_id = item['product_id']
+                product = self._get_product_by_id(product_id)
+
+                item['product'] = product
+                # Construct an image url.
+                item['image'] = '{}/{}.jpg'.format(image_root, product_id)
+
+        return orders
 
     @http(
         "POST", "/orders",
@@ -157,9 +212,11 @@ class GatewayService(object):
 
     def _create_order(self, order_data):
         # check order product ids are valid
-        valid_product_ids = {prod['id'] for prod in self.products_rpc.list()}
         for item in order_data['order_details']:
-            if item['product_id'] not in valid_product_ids:
+            try:
+                product_id = item['product_id']
+                self._get_product_by_id(product_id)
+            except Exception:
                 raise ProductNotFound(
                     "Product Id {}".format(item['product_id'])
                 )

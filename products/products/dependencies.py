@@ -1,6 +1,7 @@
 from nameko import config
 from nameko.extensions import DependencyProvider
 import redis
+from redis import Redis
 
 from products.exceptions import NotFound
 
@@ -21,7 +22,7 @@ class StorageWrapper:
 
     NotFound = NotFound
 
-    def __init__(self, client):
+    def __init__(self, client: Redis):
         self.client = client
 
     def _format_key(self, product_id):
@@ -52,6 +53,10 @@ class StorageWrapper:
         self.client.hmset(
             self._format_key(product['id']),
             product)
+        
+    def delete(self, product_id: str) -> None:
+        self.get(product_id)
+        self.client.delete(self._format_key(product_id))
 
     def decrement_stock(self, product_id, amount):
         return self.client.hincrby(

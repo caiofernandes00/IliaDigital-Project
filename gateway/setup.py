@@ -9,6 +9,7 @@ setup(
     install_requires=[
         "marshmallow==2.19.2",
         "nameko==v3.0.0-rc6",
+        "cachetools==4.2.2",
     ],
     extras_require={
         'dev': [
