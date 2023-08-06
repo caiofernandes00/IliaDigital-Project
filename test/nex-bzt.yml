@@ -64,26 +64,7 @@ scenarios:
         product_key: $.id
         default: NOT_FOUND
 
-    # # 3. Delete Product
-    # - url: /products/${product_id}
-    #   label: product-delete
-    #   think-time: uniform(0s, 0s)
-    #   method: DELETE
-        
-    #   assert:
-    #   - contains:
-    #     - 204
-    #     subject: http-code
-    #     not: false
-    #   extract-jsonpath:
-    #     product_key: $.id
-    #     default: NOT_FOUND
-
-    # - if: '"${product_key}" == "NOT_FOUND"'
-    #   then:
-    #     - action: continue
-
-    # 4. Create Orders
+    # 3. Create Orders
     - url: /orders
       label: orders-create
       think-time: uniform(0s, 0s)
@@ -109,7 +90,7 @@ scenarios:
       then:
         - action: continue
   
-    # 5. Get Orders
+    # 4. Get Orders
     - url: /orders/${order_id}
       label: order-get
       think-time: uniform(0s, 0s)
@@ -128,7 +109,7 @@ scenarios:
       then:
         - action: continue
   
-    # 6. List Orders
+    # 5. List Orders
     - url: /orders
       label: order-list
       think-time: uniform(0s, 0s)
