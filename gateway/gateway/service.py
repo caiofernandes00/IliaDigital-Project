@@ -22,7 +22,7 @@ class GatewayService(object):
     orders_rpc = RpcProxy('orders')
     products_rpc = RpcProxy('products')
     
-    @memoize_with_ttl(expiration=60)
+    @memoize_with_ttl(expiration=300)
     def _get_product_by_id(self, product_id):
         return self.products_rpc.get(product_id)
 
