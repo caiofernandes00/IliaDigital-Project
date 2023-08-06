@@ -21,6 +21,11 @@ class OrdersService:
             raise NotFound('Order with id {} not found'.format(order_id))
 
         return OrderSchema().dump(order).data
+    
+    @rpc
+    def list_orders(self):
+        orders = self.db.query(Order).all()
+        return OrderSchema(many=True).dump(orders).data
 
     @rpc
     def create_order(self, order_details):
