@@ -357,7 +357,108 @@ class TestListOrder(object):
         assert expected_response == response.json()
 
         # check dependencies called as expected
-        assert [call()] == gateway_service.orders_rpc.list_orders.call_args_list
+        assert [call(1, 10)] == gateway_service.orders_rpc.list_orders.call_args_list
+        assert [call()] == gateway_service.products_rpc.list.call_args_list
+
+    def test_can_list_order(self, gateway_service, web_session):
+        # setup mock orders-service response:
+        gateway_service.orders_rpc.list_orders.return_value = [
+            {
+                'id': 2,
+                'order_details': [
+                    {
+                        'id': 3,
+                        'quantity': 4,
+                        'product_id': 'the_odyssey2',
+                        'price': '300.00'
+                    },
+                    {
+                        'id': 4,
+                        'quantity': 5,
+                        'product_id': 'the_enigma2',
+                        'price': '500.00'
+                    }
+                ]
+            },
+        ]
+
+        # setup mock products-service response:
+        gateway_service.products_rpc.list.return_value = [
+            {
+                'id': 'the_odyssey',
+                'title': 'The Odyssey',
+                'maximum_speed': 3,
+                'in_stock': 899,
+                'passenger_capacity': 100
+            },
+            {
+                'id': 'the_enigma',
+                'title': 'The Enigma',
+                'maximum_speed': 200,
+                'in_stock': 1,
+                'passenger_capacity': 4
+            },
+            {
+                'id': 'the_odyssey2',
+                'title': 'The Odyssey 2',
+                'maximum_speed': 3,
+                'in_stock': 899,
+                'passenger_capacity': 100
+            },
+            {
+                'id': 'the_enigma2',
+                'title': 'The Enigma 2',
+                'maximum_speed': 200,
+                'in_stock': 5,
+                'passenger_capacity': 4
+            },
+        ]
+
+        # call the gateway service to get order #1
+        response = web_session.get('/orders?page_size=1&page_number=1')
+        assert response.status_code == 200
+
+        expected_response = [
+            {
+                'id': 2,
+                'order_details': [
+                    {
+                        'id': 3,
+                        'quantity': 4,
+                        'product_id': 'the_odyssey2',
+                        'image':
+                            'http://example.com/airship/images/the_odyssey2.jpg',
+                        'product': {
+                            'id': 'the_odyssey2',
+                            'title': 'The Odyssey 2',
+                            'maximum_speed': 3,
+                            'in_stock': 899,
+                            'passenger_capacity': 100
+                        },
+                        'price': '300.00'
+                    },
+                    {
+                        'id': 4,
+                        'quantity': 5,
+                        'product_id': 'the_enigma2',
+                        'image':
+                            'http://example.com/airship/images/the_enigma2.jpg',
+                        'product': {
+                            'id': 'the_enigma2',
+                            'title': 'The Enigma 2',
+                            'maximum_speed': 200,
+                            'in_stock': 5,
+                            'passenger_capacity': 4
+                        },
+                        'price': '500.00'
+                    }
+                ]
+            }
+        ]
+        assert expected_response == response.json()
+
+        # check dependencies called as expected
+        assert [call(1, 1)] == gateway_service.orders_rpc.list_orders.call_args_list
         assert [call()] == gateway_service.products_rpc.list.call_args_list
 
     def test_can_list_order_when(self, gateway_service, web_session):
@@ -372,7 +473,7 @@ class TestListOrder(object):
         assert expected_response == response.json()
 
         # check dependencies called as expected
-        assert [call()] == gateway_service.orders_rpc.list_orders.call_args_list
+        assert [call(1, 10)] == gateway_service.orders_rpc.list_orders.call_args_list
 
 
 class TestCreateOrder(object):

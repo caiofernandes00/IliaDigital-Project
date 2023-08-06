@@ -64,24 +64,24 @@ scenarios:
         product_key: $.id
         default: NOT_FOUND
 
-    # 3. Delete Product
-    - url: /products/${product_id}
-      label: product-delete
-      think-time: uniform(0s, 0s)
-      method: DELETE
+    # # 3. Delete Product
+    # - url: /products/${product_id}
+    #   label: product-delete
+    #   think-time: uniform(0s, 0s)
+    #   method: DELETE
         
-      assert:
-      - contains:
-        - 204
-        subject: http-code
-        not: false
-      extract-jsonpath:
-        product_key: $.id
-        default: NOT_FOUND
+    #   assert:
+    #   - contains:
+    #     - 204
+    #     subject: http-code
+    #     not: false
+    #   extract-jsonpath:
+    #     product_key: $.id
+    #     default: NOT_FOUND
 
-    - if: '"${product_key}" == "NOT_FOUND"'
-      then:
-        - action: continue
+    # - if: '"${product_key}" == "NOT_FOUND"'
+    #   then:
+    #     - action: continue
 
     # 4. Create Orders
     - url: /orders

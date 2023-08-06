@@ -5,6 +5,7 @@ from nameko import config
 from nameko.exceptions import BadRequest
 from nameko.rpc import RpcProxy
 from werkzeug import Response
+from gateway.utils.memoization import memoize_with_ttl
 
 from gateway.entrypoints import http
 from gateway.exceptions import OrderNotFound, ProductNotFound
@@ -20,6 +21,10 @@ class GatewayService(object):
 
     orders_rpc = RpcProxy('orders')
     products_rpc = RpcProxy('products')
+    
+    @memoize_with_ttl(expiration=60)
+    def _get_list_of_products(self):
+        return self.products_rpc.list()
 
     @http(
         "GET", "/products/<string:product_id>",
@@ -104,7 +109,7 @@ class GatewayService(object):
         order = self.orders_rpc.get_order(order_id)
 
         # Retrieve all products from the products service
-        product_map = {prod['id']: prod for prod in self.products_rpc.list()}
+        product_map = {prod['id']: prod for prod in self._get_list_of_products()}
 
         # get the configured image root
         image_root = config['PRODUCT_IMAGE_ROOT']
@@ -120,27 +125,34 @@ class GatewayService(object):
         return order
 
     @http("GET", "/orders")
-    def list_orders(self, request):
+    def list_orders(self, request, expected_exceptions=ValidationError):
         """Gets the order details for the order given by `order_id`.
 
         Enhances the order details with full product details from the
         products-service.
         """
-        orders = self._list_orders()
+        try:
+            params = request.args.to_dict()
+            page_number = int(params['page_number']) if 'page_number' in params else 1
+            page_size = int(params['page_size']) if 'page_size' in params else 10    
+        except ValueError as exc:
+            raise BadRequest("Invalid parameters: {}".format(exc))
+        
+        orders = self._list_orders(page_number, page_size)
         return Response(
             GetOrderSchema(many=True).dumps(orders).data,
             mimetype='application/json'
         )
 
-    def _list_orders(self):
+    def _list_orders(self, page_number, page_size):
         # Retrieve order data from the orders service.
         # Note - this may raise a remote exception that has been mapped to
-        orders = self.orders_rpc.list_orders()
+        orders = self.orders_rpc.list_orders(page_number, page_size)
         if not orders:
             return []
         
         # Retrieve all products from the products service
-        product_map = {prod['id']: prod for prod in self.products_rpc.list()}
+        product_map = {prod['id']: prod for prod in self._get_list_of_products()}
 
         # get the configured image root
         image_root = config['PRODUCT_IMAGE_ROOT']
@@ -204,7 +216,7 @@ class GatewayService(object):
 
     def _create_order(self, order_data):
         # check order product ids are valid
-        valid_product_ids = {prod['id'] for prod in self.products_rpc.list()}
+        valid_product_ids = {prod['id'] for prod in self._get_list_of_products()}
         for item in order_data['order_details']:
             if item['product_id'] not in valid_product_ids:
                 raise ProductNotFound(
