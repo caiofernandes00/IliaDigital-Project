@@ -79,6 +79,10 @@ scenarios:
         product_key: $.id
         default: NOT_FOUND
 
+    - if: '"${product_key}" == "NOT_FOUND"'
+      then:
+        - action: continue
+
     # 4. Create Orders
     - url: /orders
       label: orders-create
@@ -135,14 +139,7 @@ scenarios:
         - 200
         subject: http-code
         not: false
-      extract-jsonpath:
-        order_id: $.id
-        default: NOT_FOUND
         
-    - if: '"${order_id}" == "NOT_FOUND"'
-      then:
-        - action: continue
-  
 reporting:
 - module: final-stats
   dump-xml: stats.xml
