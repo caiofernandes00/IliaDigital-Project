@@ -135,9 +135,10 @@ class GatewayService(object):
     def _list_orders(self):
         # Retrieve order data from the orders service.
         # Note - this may raise a remote exception that has been mapped to
-        # raise``OrderNotFound``
         orders = self.orders_rpc.list_orders()
-
+        if not orders:
+            return []
+        
         # Retrieve all products from the products service
         product_map = {prod['id']: prod for prod in self.products_rpc.list()}
 
