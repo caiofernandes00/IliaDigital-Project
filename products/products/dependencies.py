@@ -55,6 +55,7 @@ class StorageWrapper:
             product)
         
     def delete(self, product_id: str) -> None:
+        self.get(product_id)
         self.client.delete(self._format_key(product_id))
 
     def decrement_stock(self, product_id, amount):
